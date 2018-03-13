@@ -19,7 +19,7 @@ var PhaserGame = function (game) {
     this.directions = [ null, null, null, null, null ];
     this.opposites = [ Phaser.NONE, Phaser.RIGHT, Phaser.LEFT, Phaser.DOWN, Phaser.UP ];
 
-    this.current = Phaser.LEFT;
+    this.current = Phaser.RIGHT;
     this.turning = Phaser.NONE;
 
 };
