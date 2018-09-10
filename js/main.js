@@ -1,13 +1,6 @@
-/*
-GRA: Czołgi
-Kordian Kramek
-Daniel Rybak
-*/
-
 
 var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { preload: preload, create: create, update: update, render: render });
 
-// Ładowanie grafik
 function preload () {
 
     game.load.image('p1', 'images/p1.png');
@@ -71,11 +64,9 @@ function create () {
 
     game.world.setBounds(0, 0, 800, 600);
 
-    //Losowanie mapy
     map = Math.floor((Math.random() * 10)%2) + 1
     createMap(map);
 
-    //Tworzenie gracza 1
     p1 = game.add.sprite(40, 35, 'p1');
     p1.anchor.setTo(0.5, 0.5);
 
@@ -95,7 +86,6 @@ function create () {
     bulletsP1.setAll('outOfBoundsKill', true);
     bulletsP1.setAll('checkWorldBounds', true);
 
-    //Tworzenie gracza 2
     p2 = game.add.sprite(760, 565, 'p2');
     p2.anchor.setTo(0.5, 0.5);
     p2.angle -= 180;
@@ -116,7 +106,6 @@ function create () {
     bulletsP2.setAll('outOfBoundsKill', true);
     bulletsP2.setAll('checkWorldBounds', true);
 
-    //Dowanie explozji
     explosions = game.add.group();
     shotExplosions = game.add.group();
 
@@ -131,14 +120,11 @@ function create () {
         shootExplosionAnimation.animations.add('smallkaboom');
     }
 
-    //Tworzenie budynków na mapie
     createBuildings(map);
 
-    //Ekran startowy
     logo = game.add.sprite(0, 0, 'logo');
     game.input.onDown.add(removeLogo, this);
 
-    //Ustawianie sterowania
     cursors = game.input.keyboard.createCursorKeys();
 
     cursors2 = {
@@ -217,7 +203,6 @@ function removeLogo () {
 
 }
 
-//Ruchy gracza 1
 function updateP1() {
 
     game.physics.arcade.overlap(bulletsP2, p1, bulletHitPlayerP1, null, this);
@@ -272,7 +257,6 @@ function updateP1() {
     }
 }
 
-//Ruchy gracza 2
 function updateP2() {
       game.physics.arcade.overlap(bulletsP1, p2, bulletHitPlayerP2, null, this);
       game.physics.arcade.overlap(bulletsP1, buildings, bulletHitBuilding, null, this);
