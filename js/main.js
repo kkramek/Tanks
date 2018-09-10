@@ -1,184 +1,427 @@
+/*
+GRA: Czołgi
+Kordian Kramek
+Daniel Rybak
+*/
 
-var game = new Phaser.Game(640, 480, Phaser.CANVAS, 'game');
 
-var PhaserGame = function (game) {
+var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { preload: preload, create: create, update: update, render: render });
 
-    this.map = null;
-    this.layer = null;
-    this.player = null;
+// Ładowanie grafik
+function preload () {
 
-    this.gridsize = 32;
+    game.load.image('p1', 'images/p1.png');
+    game.load.image('p2', 'images/p2.png');
+    game.load.image('logo', 'images/logo.png');
+    game.load.image('bullet', 'images/bullet.png');
+    game.load.image('searth', 'images/scorched_earth.png');
+    game.load.image('sand', 'images/sand.png');
+    game.load.image('lightsand', 'images/light_sand.png');
+    game.load.image('grass', 'images/grass.png');
+    game.load.image('house1', 'images/house1.png');
+    game.load.image('house2', 'images/house2.png');
+    game.load.image('house3', 'images/house3.png');
+    game.load.image('house4', 'images/house4.png');
+    game.load.image('forest', 'images/forest.png');
+    game.load.image('forest2', 'images/forest2.png');
+    game.load.image('water', 'images/water.png');
+    game.load.spritesheet('smallkaboom', 'images/small_explosion.png', 64, 64, 8);
+    game.load.spritesheet('kaboom', 'images/explosion.png', 64, 64, 23);
 
-    this.speed = 150;
-    this.threshold = 3;
-    this.turnSpeed = 150;
+}
 
-    this.marker = new Phaser.Point();
-    this.turnPoint = new Phaser.Point();
+var land;
 
-    this.directions = [ null, null, null, null, null ];
-    this.opposites = [ Phaser.NONE, Phaser.RIGHT, Phaser.LEFT, Phaser.DOWN, Phaser.UP ];
+var p1;
+var p2;
 
-    this.current = Phaser.RIGHT;
-    this.turning = Phaser.NONE;
+var explosions;
 
-};
+var logo;
 
-PhaserGame.prototype = {
+var currentSpeedP1 = 0;
+var currentSpeedP2 = 0;
+var cursors;
+var cursors2;
 
-    init: function () {
+var bulletsP1;
+var bulletsP2;
+var nextFireP1 = 0;
+var nextFireP2 = 0;
+var fireRate = 500;
 
-        this.physics.startSystem(Phaser.Physics.ARCADE);
+var bulletSpeed = 700;
+var playerSpeedIncrement = 2;
+var playerSpeedMax = 200;
+var playerSpeedAngle = 2;
 
-    },
+var weaponP1;
 
-    preload: function () {
+var live = 100;
+var liveP1 = live;
+var liveP2 = live;
 
-        this.load.image('map', 'images/grass.png');
-        this.load.image('player', 'images/tank.png');
+var buildings;
+var shelters;
+var water;
 
-    },
+var map;
 
-    create: function () {
+function create () {
 
-        this.map = this.add.image('map');
+    game.world.setBounds(0, 0, 800, 600);
 
-        this.player = this.add.sprite(46, 46, 'player');
-        this.player.anchor.set(0.5);
+    //Losowanie mapy
+    map = Math.floor((Math.random() * 10)%2) + 1
+    createMap(map);
 
-        this.physics.arcade.enable(this.player);
+    //Tworzenie gracza 1
+    p1 = game.add.sprite(40, 35, 'p1');
+    p1.anchor.setTo(0.5, 0.5);
 
-        this.cursors = this.input.keyboard.createCursorKeys();
+    game.physics.enable(p1, Phaser.Physics.ARCADE);
+    p1.body.drag.set(0.2);
+    p1.body.maxVelocity.setTo(400, 400);
+    p1.body.collideWorldBounds = true;
+    p1.body.immovable = false;
+    p1.body.bounce.setTo(1, 1);
 
-    },
+    bulletsP1 = game.add.group();
+    bulletsP1.enableBody = true;
+    bulletsP1.physicsBodyType = Phaser.Physics.ARCADE;
+    bulletsP1.createMultiple(30, 'bullet', 0, false);
+    bulletsP1.setAll('anchor.x', 0.5);
+    bulletsP1.setAll('anchor.y', 0.5);
+    bulletsP1.setAll('outOfBoundsKill', true);
+    bulletsP1.setAll('checkWorldBounds', true);
 
-    checkKeys: function () {
+    //Tworzenie gracza 2
+    p2 = game.add.sprite(760, 565, 'p2');
+    p2.anchor.setTo(0.5, 0.5);
+    p2.angle -= 180;
 
-        if (this.cursors.left.isDown && this.current !== Phaser.LEFT)
-        {
-            this.checkDirection(Phaser.LEFT);
-        }
-        else if (this.cursors.right.isDown && this.current !== Phaser.RIGHT)
-        {
-            this.checkDirection(Phaser.RIGHT);
-        }
-        else if (this.cursors.up.isDown && this.current !== Phaser.UP)
-        {
-            this.checkDirection(Phaser.UP);
-        }
-        else if (this.cursors.down.isDown && this.current !== Phaser.DOWN)
-        {
-            this.checkDirection(Phaser.DOWN);
-        }
-        else
-        {
-            this.turning = Phaser.NONE;
-        }
+    game.physics.enable(p2, Phaser.Physics.ARCADE);
+    p2.body.drag.set(0.2);
+    p2.body.maxVelocity.setTo(400, 400);
+    p2.body.collideWorldBounds = true;
+    p2.body.immovable = false;
+    p2.body.bounce.setTo(1, 1);
 
-    },
+    bulletsP2 = game.add.group();
+    bulletsP2.enableBody = true;
+    bulletsP2.physicsBodyType = Phaser.Physics.ARCADE;
+    bulletsP2.createMultiple(30, 'bullet', 0, false);
+    bulletsP2.setAll('anchor.x', 0.5);
+    bulletsP2.setAll('anchor.y', 0.5);
+    bulletsP2.setAll('outOfBoundsKill', true);
+    bulletsP2.setAll('checkWorldBounds', true);
 
-    checkDirection: function (turnTo) {
+    //Dowanie explozji
+    explosions = game.add.group();
+    shotExplosions = game.add.group();
 
-        if (this.current === this.opposites[turnTo])
-        {
-            this.move(turnTo);
-        }
-        else
-        {
-            this.turning = turnTo;
+    for (var i = 0; i < 10; i++)
+    {
+        var explosionAnimation = explosions.create(0, 0, 'kaboom', [0], false);
+        explosionAnimation.anchor.setTo(0.5, 0.5);
+        explosionAnimation.animations.add('kaboom');
 
-            this.turnPoint.x = (this.marker.x * this.gridsize) + (this.gridsize / 2);
-            this.turnPoint.y = (this.marker.y * this.gridsize) + (this.gridsize / 2);
-        }
+        var shootExplosionAnimation = shotExplosions.create(0, 0, 'smallkaboom', [0], false);
+        shootExplosionAnimation.anchor.setTo(0.5, 0.5);
+        shootExplosionAnimation.animations.add('smallkaboom');
+    }
 
-    },
+    //Tworzenie budynków na mapie
+    createBuildings(map);
 
-    turn: function () {
+    //Ekran startowy
+    logo = game.add.sprite(0, 0, 'logo');
+    game.input.onDown.add(removeLogo, this);
 
-        var cx = Math.floor(this.player.x);
-        var cy = Math.floor(this.player.y);
+    //Ustawianie sterowania
+    cursors = game.input.keyboard.createCursorKeys();
 
-        if (!this.math.fuzzyEqual(cx, this.turnPoint.x, this.threshold) || !this.math.fuzzyEqual(cy, this.turnPoint.y, this.threshold))
-        {
-            return false;
-        }
+    cursors2 = {
+      up: game.input.keyboard.addKey(Phaser.Keyboard.W),
+      down: game.input.keyboard.addKey(Phaser.Keyboard.S),
+      left: game.input.keyboard.addKey(Phaser.Keyboard.A),
+      right: game.input.keyboard.addKey(Phaser.Keyboard.D),
+      fire1: game.input.keyboard.addKey(Phaser.Keyboard.P),
+      fire2: game.input.keyboard.addKey(Phaser.Keyboard.C),
+    };
+}
 
-        this.player.x = this.turnPoint.x;
-        this.player.y = this.turnPoint.y;
+function createMap(number) {
 
-        this.player.body.reset(this.turnPoint.x, this.turnPoint.y);
+    switch (number) {
+      case 1:
+          land = game.add.tileSprite(0, 0, 800, 600, 'searth');
+        break;
 
-        this.move(this.turning);
-
-        this.turning = Phaser.NONE;
-
-        return true;
-
-    },
-
-    move: function (direction) {
-
-        var speed = this.speed;
-
-        if (direction === Phaser.LEFT || direction === Phaser.UP)
-        {
-            speed = -speed;
-        }
-
-        if (direction === Phaser.LEFT || direction === Phaser.RIGHT)
-        {
-            this.player.body.velocity.x = speed;
-        }
-        else
-        {
-            this.player.body.velocity.y = speed;
-        }
-
-        this.add.tween(this.player).to( { angle: this.getAngle(direction) }, this.turnSpeed, "Linear", true);
-
-        this.current = direction;
-
-    },
-
-    getAngle: function (to) {
-
-        if (this.current === this.opposites[to])
-        {
-            return "180";
-        }
-
-        if ((this.current === Phaser.UP && to === Phaser.LEFT) ||
-            (this.current === Phaser.DOWN && to === Phaser.RIGHT) ||
-            (this.current === Phaser.LEFT && to === Phaser.DOWN) ||
-            (this.current === Phaser.RIGHT && to === Phaser.UP))
-        {
-            return "-90";
-        }
-
-        return "90";
-
-    },
-
-    update: function () {
-
-        this.marker.x = this.math.snapToFloor(Math.floor(this.player.x), this.gridsize) / this.gridsize;
-        this.marker.y = this.math.snapToFloor(Math.floor(this.player.y), this.gridsize) / this.gridsize;
-
-        this.checkKeys();
-
-        if (this.turning !== Phaser.NONE)
-        {
-            this.turn();
-        }
-
-    },
-
-    render: function () {
+      case 2:
+        land = game.add.tileSprite(0, 0, 800, 600, 'sand');
+        water = game.add.physicsGroup();
+        game.physics.enable(water, Phaser.Physics.ARCADE);
+        water.create(250, 250, 'water');
+        water.setAll('body.immovable', true);
+        water.setAll('body.moves', false);
+        break;
+      default:
 
     }
 
-};
+}
 
-game.state.add('Game', PhaserGame, true);
+function createBuildings(number) {
+
+    switch (number) {
+      case 1:
+          buildings = game.add.physicsGroup();
+          game.physics.enable(buildings, Phaser.Physics.ARCADE);
+          buildings.create(80, 80, 'house1');
+          buildings.create(630, 80, 'house2');
+          buildings.create(80, 265, 'house3');
+          buildings.create(450, 400, 'house4');
+          buildings.setAll('body.immovable', true);
+          buildings.setAll('body.moves', false);
+        break;
+
+      case 2:
+        shelters = game.add.physicsGroup();
+        shelters.create(0, 290, 'forest');
+        shelters.create(290, 0, 'forest2');
+        break;
+      default:
+
+    }
+
+}
+
+function update () {
+
+    updateP1();
+    updateP2();
+
+    if(liveP1 <= 0 || liveP2 <=0) {
+          logo.reset(0, 0);
+          p1.reset(40, 35);
+          p2.reset(760, 565);
+    }
+}
+
+function removeLogo () {
+    liveP1 = live;
+    liveP2 = live;
+
+    logo.kill();
+
+}
+
+//Ruchy gracza 1
+function updateP1() {
+
+    game.physics.arcade.overlap(bulletsP2, p1, bulletHitPlayerP1, null, this);
+    game.physics.arcade.overlap(bulletsP2, buildings, bulletHitBuilding, null, this);
+    game.physics.arcade.collide(p1, p2);
+    game.physics.arcade.collide(p1, buildings);
+    game.physics.arcade.collide(p1, water);
+
+    if(liveP1 > 0) {
+
+        if (cursors.left.isDown)
+        {
+            p1.angle -= playerSpeedAngle;
+        }
+        else if (cursors.right.isDown)
+        {
+            p1.angle += playerSpeedAngle;
+        }
+
+        if (cursors.up.isDown)
+        {
+            if(currentSpeedP1 <= playerSpeedMax) {
+                currentSpeedP1 += playerSpeedIncrement;
+            }
+
+        } else {
+            if (currentSpeedP1 > 0)
+            {
+                currentSpeedP1 -= playerSpeedIncrement;
+            }
+        }
+
+        if (cursors.down.isDown)
+        {
+            if(currentSpeedP1 >= -playerSpeedMax) {
+                currentSpeedP1 -= playerSpeedIncrement;
+            }
+        } else {
+          if (currentSpeedP1 < 0)
+          {
+              currentSpeedP1 += playerSpeedIncrement;
+          }
+        }
+
+        game.physics.arcade.velocityFromRotation(p1.rotation, currentSpeedP1, p1.body.velocity);
 
 
+        if (cursors2.fire1.isDown)
+        {
+            fire('p1');
+        }
+    }
+}
+
+//Ruchy gracza 2
+function updateP2() {
+      game.physics.arcade.overlap(bulletsP1, p2, bulletHitPlayerP2, null, this);
+      game.physics.arcade.overlap(bulletsP1, buildings, bulletHitBuilding, null, this);
+      game.physics.arcade.collide(p2, p1);
+      game.physics.arcade.collide(p2, buildings);
+      game.physics.arcade.collide(p2, water);
+
+
+      if(liveP2 > 0) {
+
+          if (cursors2.left.isDown)
+          {
+              p2.angle -= playerSpeedAngle;
+          }
+          else if (cursors2.right.isDown)
+          {
+              p2.angle += playerSpeedAngle;
+          }
+
+          if (cursors2.up.isDown)
+          {
+            if(currentSpeedP2 <= playerSpeedMax) {
+                currentSpeedP2 += playerSpeedIncrement;
+            }
+          } else {
+            if (currentSpeedP2 > 0)
+            {
+                currentSpeedP2 -= playerSpeedIncrement;
+            }
+          }
+
+          if (cursors2.down.isDown)
+          {
+              if(currentSpeedP2 >= -playerSpeedMax) {
+                  currentSpeedP2 -= playerSpeedIncrement;
+              }
+
+          } else {
+            if (currentSpeedP2 < 0)
+            {
+                currentSpeedP2 += playerSpeedIncrement;
+            }
+          }
+
+          game.physics.arcade.velocityFromRotation(p2.rotation, currentSpeedP2, p2.body.velocity);
+
+          if (cursors2.fire2.isDown)
+          {
+              fire();
+          }
+
+      }
+}
+
+function bulletHitPlayerP1 (tank, bullet) {
+
+    bullet.kill();
+
+    if(liveP1 > 0) {
+      liveP1 -= 10;
+    }
+
+    if(liveP1 <= 0) {
+      var destroyed = tank.damage();
+
+      if (destroyed)
+      {
+          var explosionAnimation = explosions.getFirstExists(false);
+          explosionAnimation.reset(tank.x, tank.y);
+          explosionAnimation.play('kaboom', 30, false, true);
+      }
+    } else {
+          var shooxplosionAnimation = shotExplosions.getFirstExists(false);
+          shooxplosionAnimation.reset(tank.x, tank.y);
+          shooxplosionAnimation.play('smallkaboom', 30, false, true);
+
+    }
+}
+
+function bulletHitPlayerP2 (tank, bullet) {
+
+    bullet.kill();
+
+    if(liveP2 > 0) {
+        liveP2 -= 10;
+    }
+
+    if(liveP2 <= 0) {
+      var destroyed = tank.damage();
+
+      if (destroyed)
+      {
+          var explosionAnimation = explosions.getFirstExists(false);
+          explosionAnimation.reset(tank.x, tank.y);
+          explosionAnimation.play('kaboom', 30, false, true);
+      }
+    } else {
+          var shooxplosionAnimation = shotExplosions.getFirstExists(false);
+          shooxplosionAnimation.reset(tank.x, tank.y);
+          shooxplosionAnimation.play('smallkaboom', 30, false, true);
+
+    }
+}
+
+function bulletHitBuilding(bullet) {
+    bullet.kill();
+}
+
+function fire (player) {
+
+    if(player == 'p1') {
+
+      if (game.time.now > nextFireP1)
+      {
+          nextFireP1 = game.time.now + fireRate;
+          var bullet = bulletsP1.getFirstExists(false);
+
+          if (bullet)
+          {
+              bullet.reset(p1.x, p1.y);
+              bullet.angle = p1.angle;
+              game.physics.arcade.velocityFromRotation(bullet.rotation, bulletSpeed, bullet.body.velocity);
+              bulletTime = game.time.now + 150;
+          }
+      }
+
+    } else {
+
+        if (game.time.now > nextFireP2)
+        {
+            nextFireP2 = game.time.now + fireRate;
+            var bullet = bulletsP2.getFirstExists(false);
+
+            if (bullet)
+            {
+                bullet.reset(p2.x, p2.y);
+                bullet.angle = p2.angle;
+                game.physics.arcade.velocityFromRotation(bullet.rotation, bulletSpeed, bullet.body.velocity);
+                bulletTime = game.time.now + 150;
+            }
+        }
+
+    }
+
+}
+
+function render () {
+
+    game.debug.text('P1: ' + liveP1, 32, 32);
+    game.debug.text('P2: ' + liveP2, 700, 32);
+
+}
